@@ -1492,8 +1492,8 @@ class Superset(BaseSupersetView):
         schemas = database.all_schema_names()
         schemas = security_manager.schemas_accessible_by_user(database, schemas)
         for i in schemas:
-            if i[0] == config.get('PROJECT_DB'):
-                allowed_schemas.append(i[0])
+            if i == config.get('PROJECT_DB'):
+                allowed_schemas.append(i)
         return Response(
             json.dumps({'schemas': allowed_schemas}),
             mimetype='application/json')
