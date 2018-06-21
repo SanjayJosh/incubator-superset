@@ -1481,6 +1481,7 @@ class Superset(BaseSupersetView):
     @has_access_api
     @expose('/schemas/<db_id>/')
     def schemas(self, db_id):
+        allowed_schemas=list()
         db_id = int(db_id)
         database = (
             db.session
@@ -1490,8 +1491,11 @@ class Superset(BaseSupersetView):
         )
         schemas = database.all_schema_names()
         schemas = security_manager.schemas_accessible_by_user(database, schemas)
+        for i in schemas:
+            if i == config.get('DB_NAME'):
+                allowed_schemas.append(i)
         return Response(
-            json.dumps({'schemas': schemas}),
+            json.dumps({'schemas': allowed_schemas}),
             mimetype='application/json')
 
     @api
