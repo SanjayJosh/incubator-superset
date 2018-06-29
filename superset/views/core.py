@@ -694,7 +694,7 @@ def healthcheck():
 def ping():
     return 'OK'
 
-@app.route('/add_database/',methods=['PUT'])
+@app.route('/add_database',methods=['PUT'])
 def add_database():
     req_data = request.get_json()
     presto_server=req_data['presto_server']
@@ -714,7 +714,7 @@ def add_database():
        The database name is: {}'''.format(presto_server, db_name)
 
 
-@app.route('/add_table/',methods=['PUT'])
+@app.route('/add_table',methods=['PUT'])
 def add_table():
     req_data = request.get_json()
     datasource_name=req_data['db_name']
@@ -723,7 +723,7 @@ def add_table():
        The datasource_name ip is: {}
        The table_name name is: {}'''.format(datasource_name, table_name)
 
-@app.route('/add_database_try/',methods=['PUT'])
+@app.route('/add_database_try',methods=['PUT'])
 def add_database():
     req_data = request.get_json()
     presto_server=req_data['presto_server']
@@ -734,7 +734,7 @@ def add_database():
        The database name is: {}'''.format(presto_server, db_name)
 
 
-@app.route('/add_table_try/',methods=['PUT'])
+@app.route('/add_table_try',methods=['PUT'])
 def add_table():
     req_data = request.get_json()
     datasource_name=req_data['db_name']
