@@ -713,6 +713,24 @@ def add_database():
        The server ip is: {}
        The database name is: {}'''.format(presto_server, db_name)
 
+@app.route('/delete_database',methods=['DELETE'])
+def add_database():
+    req_data = request.get_json()
+    presto_server=req_data['presto_server']
+    db_name=req_data['db_name']
+    datasource_name=req_data['db_name']
+    dbobj = (db.session.query(models.Database).filter_by(database_name=datasource_name).first())
+    if not dbobj:
+        dbobj = models.Database(database_name=datasource_name)
+        datasource_url=presto_server+db_name
+        dbobj.set_sqlalchemy_uri(datasource_url)
+        dbobj.expose_in_sqllab = True
+        dbobj.allow_run_sync = True
+        db.session.delete(dbobj)
+    db.session.commit()
+    return '''
+       The server ip is: {}
+       The database name is: {}'''.format(presto_server, db_name)
 
 @app.route('/add_table',methods=['PUT'])
 def add_table():
@@ -724,7 +742,7 @@ def add_table():
        The table_name name is: {}'''.format(datasource_name, table_name)
 
 @app.route('/add_database_try',methods=['PUT'])
-def add_database():
+def add_database_try():
     req_data = request.get_json()
     presto_server=req_data['presto_server']
     db_name=req_data['db_name']
@@ -735,7 +753,7 @@ def add_database():
 
 
 @app.route('/add_table_try',methods=['PUT'])
-def add_table():
+def add_table_try():
     req_data = request.get_json()
     datasource_name=req_data['db_name']
     table_name=req_data['table_name']
