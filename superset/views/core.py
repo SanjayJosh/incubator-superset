@@ -713,8 +713,19 @@ def add_database():
        The server ip is: {}
        The database name is: {}'''.format(presto_server, db_name)
 
+@app.route('/add_database_try',methods=['PUT'])
+def add_database_try():
+    req_data = request.get_json()
+    presto_server=req_data['presto_server']
+    db_name=req_data['db_name']
+    datasource_name=req_data['db_name']
+    return '''
+       The server ip is: {}
+       The database name is: {}'''.format(presto_server, db_name)
+
+
 @app.route('/delete_database',methods=['DELETE'])
-def add_database():
+def delete_database():
     req_data = request.get_json()
     presto_server=req_data['presto_server']
     db_name=req_data['db_name']
@@ -731,7 +742,7 @@ def add_database():
     return '''
        The server ip is: {}
        The database name is: {}'''.format(presto_server, db_name)
-
+       
 @app.route('/add_table',methods=['PUT'])
 def add_table():
     req_data = request.get_json()
@@ -740,17 +751,6 @@ def add_table():
     return '''
        The datasource_name ip is: {}
        The table_name name is: {}'''.format(datasource_name, table_name)
-
-@app.route('/add_database_try',methods=['PUT'])
-def add_database_try():
-    req_data = request.get_json()
-    presto_server=req_data['presto_server']
-    db_name=req_data['db_name']
-    datasource_name=req_data['db_name']
-    return '''
-       The server ip is: {}
-       The database name is: {}'''.format(presto_server, db_name)
-
 
 @app.route('/add_table_try',methods=['PUT'])
 def add_table_try():
