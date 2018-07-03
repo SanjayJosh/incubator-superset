@@ -35,7 +35,7 @@ from werkzeug.utils import secure_filename
 
 from superset import (
     app, appbuilder, cache, db, results_backend, security_manager, sql_lab, utils,
-    viz,
+    viz,csrf
 )
 from superset.connectors.connector_registry import ConnectorRegistry
 from superset.connectors.sqla.models import AnnotationDatasource, SqlaTable
@@ -695,64 +695,157 @@ def ping():
     return 'OK'
 
 @app.route('/add_database',methods=['PUT'])
+@csrf.exempt
 def add_database():
     req_data = request.get_json()
-    presto_server=req_data['presto_server']
+    server_url=req_data['server_url']
     db_name=req_data['db_name']
     datasource_name=req_data['db_name']
-    dbobj = (db.session.query(models.Database).filter_by(database_name=datasource_name).first())
-    if not dbobj:
-        dbobj = models.Database(database_name=datasource_name)
-        datasource_url=presto_server+db_name
-        dbobj.set_sqlalchemy_uri(datasource_url)
-        dbobj.expose_in_sqllab = True
-        dbobj.allow_run_sync = True
-        db.session.add(dbobj)
-    db.session.commit()
-    return '''
-       The server ip is: {}
-       The database name is: {}'''.format(presto_server, db_name)
+    try:
+        dbobj = (db.session.query(models.Database).filter_by(database_name=datasource_name).first())
+        datasource_url=server_url+db_name
+        if not dbobj:
+            dbobj = models.Database(database_name=datasource_name)
+            dbobj.set_sqlalchemy_uri(datasource_url)
+            dbobj.expose_in_sqllab = True
+            dbobj.allow_run_sync = True
+            db.session.add(dbobj)
+        else:
+            dbobj.set_sqlalchemy_uri(datasource_url)
+        db.session.commit()
+        return  Response(
+            json.dumps({'Status': 'OK','Added':{'database':datasource_name}}),
+            status=200)
+    except Exception as e:
+        logging.exception(e)
+        return json_error_response(e)
 
 @app.route('/add_database_try',methods=['PUT'])
+@csrf.exempt
 def add_database_try():
     req_data = request.get_json()
-    presto_server=req_data['presto_server']
+    server_url=req_data['server_url']
     db_name=req_data['db_name']
     datasource_name=req_data['db_name']
     return '''
        The server ip is: {}
-       The database name is: {}'''.format(presto_server, db_name)
+       The database name is: {}'''.format(server_url, db_name)
 
 
 @app.route('/delete_database',methods=['DELETE'])
+@csrf.exempt
 def delete_database():
     req_data = request.get_json()
-    presto_server=req_data['presto_server']
-    db_name=req_data['db_name']
     datasource_name=req_data['db_name']
-    dbobj = (db.session.query(models.Database).filter_by(database_name=datasource_name).first())
-    if not dbobj:
-        dbobj = models.Database(database_name=datasource_name)
-        datasource_url=presto_server+db_name
-        dbobj.set_sqlalchemy_uri(datasource_url)
-        dbobj.expose_in_sqllab = True
-        dbobj.allow_run_sync = True
-        db.session.delete(dbobj)
-    db.session.commit()
-    return '''
-       The server ip is: {}
-       The database name is: {}'''.format(presto_server, db_name)
-       
+    try:
+        dbobj = (db.session.query(models.Database).filter_by(database_name=datasource_name).first())
+        if dbobj:
+            db.session.delete(dbobj)
+            db.session.commit()
+            return  Response(
+                json.dumps({'Status': 'OK','Deleted':{'datasource':datasource_name}}),
+                status=200)
+        else:
+            return  Response(
+                json.dumps({'Status': 'Error','Deleted':{'database':'The Datasource '+datasource_name+' does not exist'}}),
+                status=404)
+    except Exception as e:
+        logging.exception(e)
+        return json_error_response(e)
+
 @app.route('/add_table',methods=['PUT'])
+@csrf.exempt
 def add_table():
     req_data = request.get_json()
     datasource_name=req_data['db_name']
     table_name=req_data['table_name']
-    return '''
-       The datasource_name ip is: {}
-       The table_name name is: {}'''.format(datasource_name, table_name)
+    try:
+        dbobj = (db.session.query(models.Database).filter_by(database_name=datasource_name).first())
+        if dbobj:
+            try:
+                engine=dbobj.get_sqla_engine()
+                all_tables=list()
+                with engine.connect() as conn:
+                    res=conn.execute("show tables")
+                    for i in res:
+                        all_tables.append(i[0])
+                if table_name in all_tables :
+                    TBL = ConnectorRegistry.sources['table']
+                    # tbl = db.session.query(TBL).filter_by(table_name=tbl_name).first()
+                    all_tables_in_app_db=[i.name for i in  dbobj.tables]
+                    if table_name not in all_tables_in_app_db:
+                        tbl = TBL(table_name=table_name)
+                        tbl.description = "Table called "+table_name+" in "+datasource_name
+                        tbl.database = dbobj
+                        db.session.merge(tbl)
+                        db.session.commit()
+                        tbl.fetch_metadata()
+                    return  Response(
+                        json.dumps({'Status': 'OK','Added':{'tables':table_name}}),
+                        status=200)
+                else:
+                    json.dumps({'Status': 'Error','Added':{'table':'The table '+table_name+' does not exist in the database.'}},
+                    status=404)
+
+            except Exception as e:
+                logging.exception(e)
+                return  Response(
+                    json.dumps({'Status': 'Error','Deleted':{'database':'The Datasource engine fails. Please change the url.'}}),
+                    status=500)
+        else:
+            return  Response(
+                json.dumps({'Status': 'Error','Deleted':{'database':'The Datasource '+datasource_name+' does not exist'}}),
+                status=404)
+    except Exception as e:
+        logging.exception(e)
+        return json_error_response(e)
+
+@app.route('/delete_table',methods=['DELETE'])
+@csrf.exempt
+def delete_table():
+    req_data = request.get_json()
+    datasource_name=req_data['db_name']
+    table_name=req_data['table_name']
+    try:
+        dbobj = (db.session.query(models.Database).filter_by(database_name=datasource_name).first())
+        if dbobj:
+            TBL = ConnectorRegistry.sources['table']
+            tbl_objs = db.session.query(TBL).filter_by(table_name=table_name).all()
+            if not tbl_objs:
+                logging.info("No table found with the name given")
+                return  Response(
+                    json.dumps({'Status': 'Error','Deleted':{'table':'The Table '+table_name+' does not exist'}}),
+                    status=404)
+
+            else:
+                all_tables_in_app_db=[i.database.database_name for i in tbl_objs]
+                if datasource_name in all_tables_in_app_db:
+                    this_index=all_tables_in_app_db.index(datasource_name)
+                    tbl_obj=tbl_objs[this_index]
+                    db.session.delete(tbl_obj)
+                    db.session.commit()
+                    return  Response(
+                        json.dumps({'Status': 'OK','Deleted':{'tables':table_name}}),
+                        status=200)
+                else:
+                    logging.info("Table name given with wrong datasource")
+                    return  Response(
+                        json.dumps({'Status': 'Error','Deleted':{'database':'The Table '+table_name+' does not exist in the Datasource '+datasource_name}}),
+                        status=404)
+
+
+
+        else:
+            logging.info("No database found with the name given")
+            return  Response(
+                json.dumps({'Status': 'Error','Deleted':{'database':'The Datasource '+datasource_name+' does not exist'}}),
+                status=404)
+    except Exception as e:
+        logging.exception(e)
+        return json_error_response(e)
 
 @app.route('/add_table_try',methods=['PUT'])
+@csrf.exempt
 def add_table_try():
     req_data = request.get_json()
     datasource_name=req_data['db_name']

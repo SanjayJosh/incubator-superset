@@ -32,6 +32,7 @@ def init():
     """Inits the Superset application"""
     utils.get_or_create_main_db()
     security_manager.sync_role_definitions()
+    utils.support_multi_source_table()
 
 
 def debug_run(app, port, use_reloader):

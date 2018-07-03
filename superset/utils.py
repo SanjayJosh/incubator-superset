@@ -837,3 +837,47 @@ def ensure_path_exists(path):
     except OSError as exc:
         if not (os.path.isdir(path) and exc.errno == errno.EEXIST):
             raise
+
+def support_multi_source_table():
+    from superset import conf, db
+    from superset.models import core as models
+    try:
+        dbobj = (db.session.query(models.Database).filter_by(database_name='main').first())
+        if dbobj:
+            engine=dbobj.get_sqla_engine()
+            with engine.connect() as session:
+                session.execute("ALTER TABLE tables RENAME TO temp_table")
+                session.execute("""CREATE TABLE "tables" (
+                  created_on DATETIME NOT NULL,
+                  changed_on DATETIME NOT NULL,
+                  id INTEGER NOT NULL,
+                  table_name VARCHAR(250),
+                  main_dttm_col VARCHAR(250),
+                  default_endpoint TEXT,
+                  database_id INTEGER NOT NULL,
+                  created_by_fk INTEGER,
+                  changed_by_fk INTEGER,
+                  "offset" INTEGER,
+                  description TEXT,
+                  is_featured BOOLEAN,
+                  user_id INTEGER,
+                  cache_timeout INTEGER,
+                  schema VARCHAR(255),
+                  sql TEXT,
+                  params TEXT,
+                  perm VARCHAR(1000),
+                  filter_select_enabled BOOLEAN,
+                  fetch_values_predicate VARCHAR(1000),
+                  is_sqllab_view BOOLEAN DEFAULT 0,
+                  PRIMARY KEY (id),
+                  CHECK (is_featured IN (0, 1)),
+                  CONSTRAINT user_id FOREIGN KEY(user_id) REFERENCES ab_user (id),
+                  FOREIGN KEY(changed_by_fk) REFERENCES ab_user (id),
+                  FOREIGN KEY(database_id) REFERENCES dbs (id),
+                  FOREIGN KEY(created_by_fk) REFERENCES ab_user (id),
+                  CONSTRAINT _customer_location_uc UNIQUE (table_name, schema, database_id) )""")
+                session.execute("INSERT INTO tables SELECT * FROM temp_table")
+                session.execute("DROP TABLE temp_table")
+            db.session.commit()
+    except Exception as e:
+            logging.error(e)
