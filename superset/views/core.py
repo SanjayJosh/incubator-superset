@@ -1650,6 +1650,7 @@ class Superset(BaseSupersetView):
         )
         schemas = database.all_schema_names()
         schemas = security_manager.schemas_accessible_by_user(database, schemas)
+
         for i in schemas:
             if i == config.get('PROJECT_DB'):
                 allowed_schemas.append(i)
